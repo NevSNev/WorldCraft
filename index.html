@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorldCraft: From Camera Navigation to Object Manipulation in Interactive Video World Models</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.9.4/css/academicons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0a0b0d;
+            --bg-card: #131416;
+            --bg-card-hover: #1a1c1f;
+            --bg-elevated: #1e2023;
+            --text: #eae9e6;
+            --text-dim: #9b9a94;
+            --text-muted: #5c5b56;
+            --accent: #e8a838;
+            --accent-glow: rgba(232, 168, 56, .1);
+            --accent2: #3dd68c;
+            --accent2-glow: rgba(61, 214, 140, .08);
+            --accent3: #5b9cf5;
+            --border: rgba(255,255,255,.06);
+            --border-accent: rgba(232, 168, 56, .2);
+            --radius: 14px;
+            --radius-sm: 8px;
+            --max-width: 1140px;
+            --font-body: 'Inter', -apple-system, sans-serif;
+            --font-display: 'Playfair Display', Georgia, serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 15px;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* === Geometric Background === */
+        .geo-bg {
+            position: fixed; inset: 0; z-index: -1; pointer-events: none;
+            background-image:
+                radial-gradient(circle at 1px 1px, rgba(232,168,56,.03) 1px, transparent 0);
+            background-size: 48px 48px;
+        }
+        .geo-bg::before {
+            content: '';
+            position: absolute; top: -20%; right: -10%;
+            width: 700px; height: 700px;
+            background: radial-gradient(circle, rgba(232,168,56,.06) 0%, transparent 60%);
+            animation: float1 30s ease-in-out infinite;
+        }
+        .geo-bg::after {
+            content: '';
+            position: absolute; bottom: -10%; left: -15%;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(61,214,140,.04) 0%, transparent 60%);
+            animation: float2 25s ease-in-out infinite;
+        }
+        @keyframes float1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,80px)} }
+        @keyframes float2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(50px,-40px)} }
+
+        /* === Navigation === */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            backdrop-filter: blur(20px) saturate(1.4);
+            -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            background: rgba(10,11,13,.8);
+            border-bottom: 1px solid var(--border);
+            transition: transform .3s;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto; padding: 0 2rem;
+            display: flex; align-items: center; justify-content: space-between; height: 54px;
+        }
+        .nav-title {
+            font-family: var(--font-display); font-size: 1.15rem;
+            color: var(--text); text-decoration: none; font-weight: 600;
+        }
+        .nav-title span { color: var(--accent); }
+        .nav-links { display: flex; gap: 1.5rem; }
+        .nav-links a {
+            color: var(--text-dim); text-decoration: none; font-size: .82rem;
+            font-weight: 500; letter-spacing: .03em; transition: color .2s;
+        }
+        .nav-links a:hover { color: var(--accent); }
+
+        /* === Layout === */
+        .container { max-width: var(--max-width); margin: 0 auto; padding: 0 2rem; }
+        section { padding: 5rem 0; position: relative; }
+
+        /* === Reveal Animation === */
+        .reveal {
+            opacity: 0; transform: translateY(24px);
+            transition: opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1);
+        }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+        .reveal-d1 { transition-delay: .1s; }
+        .reveal-d2 { transition-delay: .2s; }
+        .reveal-d3 { transition-delay: .3s; }
+
+        /* === Hero === */
+        .hero {
+            text-align: center; padding-top: 10rem; padding-bottom: 5rem;
+            position: relative; min-height: 90vh; display: flex; align-items: center;
+        }
+        .hero-tag {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .35rem .9rem; border-radius: 100px;
+            background: var(--accent-glow); border: 1px solid var(--border-accent);
+            font-size: .72rem; font-weight: 600; color: var(--accent);
+            letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2rem;
+        }
+        .hero-tag::before {
+            content: ''; width: 6px; height: 6px; border-radius: 50%;
+            background: var(--accent); animation: blink 2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+        .hero h1 {
+            font-family: var(--font-display); font-size: clamp(2rem, 4.5vw, 3.2rem);
+            font-weight: 400; line-height: 1.2; letter-spacing: -.01em;
+            max-width: 900px; margin: 0 auto 1.5rem;
+        }
+        .hero h1 em { font-style: italic; color: var(--accent); }
+        .hero .subtitle {
+            font-size: 1rem; color: var(--text-dim); max-width: 720px;
+            margin: 0 auto 2.5rem; line-height: 1.8;
+        }
+
+        /* === Links === */
+        .link-row { display: flex; justify-content: center; gap: .6rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+        .link-btn {
+            display: inline-flex; align-items: center; gap: .45rem;
+            padding: .6rem 1.2rem; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: 100px;
+            color: var(--text); text-decoration: none; font-size: .84rem;
+            font-weight: 500; transition: all .25s;
+        }
+        .link-btn:hover {
+            background: var(--bg-card-hover); border-color: var(--border-accent);
+            transform: translateY(-2px); box-shadow: 0 8px 20px rgba(232,168,56,.06);
+        }
+        .link-btn i, .link-btn .ai { font-size: .95rem; color: var(--accent); }
+
+        /* === Authors === */
+        .authors-wrap { text-align: center; }
+        .authors-list {
+            display: flex; flex-wrap: wrap; justify-content: center;
+            gap: .2rem 1.2rem; margin-bottom: .8rem; max-width: 780px; margin: 0 auto .8rem;
+        }
+        .author { font-size: .9rem; }
+        .author a { color: var(--text); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .2s; }
+        .author a:hover { border-bottom-color: var(--accent); }
+        .author sup { color: var(--accent); font-size: .65rem; font-weight: 600; }
+        .affiliations { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem 1.8rem; color: var(--text-dim); font-size: .82rem; }
+        .affiliations span sup { color: var(--accent); font-weight: 600; margin-right: .15rem; }
+
+        /* === Section Headers === */
+        .sec-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 2.5rem; }
+        .sec-head h2 { font-family: var(--font-display); font-size: 1.85rem; font-weight: 400; white-space: nowrap; }
+        .sec-head .bar { flex: 1; height: 1px; background: linear-gradient(90deg, var(--border-accent), transparent); }
+        .sec-head .bar:first-child { background: linear-gradient(90deg, transparent, var(--border-accent)); }
+
+        /* === Abstract === */
+        .abstract-text {
+            font-size: .98rem; color: var(--text-dim); line-height: 1.9;
+            max-width: 840px; margin: 0 auto; text-align: justify;
+        }
+        .abstract-text em { color: var(--accent); font-style: italic; }
+
+        /* === Method Cards (Timeline Layout) === */
+        .method-timeline {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .method-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.5rem; position: relative;
+            transition: border-color .3s, transform .3s;
+        }
+        .method-card:hover { border-color: var(--border-accent); transform: translateY(-3px); }
+        .method-card .card-num {
+            position: absolute; top: -10px; left: 1.2rem;
+            background: var(--accent); color: var(--bg); font-size: .7rem;
+            font-weight: 700; padding: .15rem .55rem; border-radius: 4px;
+            letter-spacing: .04em;
+        }
+        .method-card h3 { font-size: .9rem; font-weight: 600; margin-bottom: .5rem; margin-top: .3rem; color: var(--text); }
+        .method-card .abbr { color: var(--accent2); font-family: var(--font-mono); font-size: .75rem; font-weight: 500; margin-bottom: .5rem; }
+        .method-card p { font-size: .8rem; color: var(--text-dim); line-height: 1.65; }
+
+        /* === Figure Wrappers === */
+        .fig-wrap {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); overflow: hidden; padding: 1.5rem;
+        }
+        .fig-wrap.white-bg { background: #fff; padding: 1.5rem; }
+        .fig-wrap img { width: 100%; border-radius: var(--radius-sm); display: block; }
+        .fig-caption {
+            margin-top: 1rem; font-size: .84rem; color: var(--text-dim); line-height: 1.7;
+        }
+        .fig-wrap.white-bg .fig-caption { color: #555; }
+
+        /* === Comparison Grid === */
+        .comparison-section { margin-bottom: 3rem; }
+        .scene-tabs {
+            display: flex; gap: .5rem; margin-bottom: 1.25rem; flex-wrap: wrap;
+        }
+        .scene-tab {
+            padding: .4rem 1rem; border-radius: 100px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-dim); font-size: .78rem;
+            font-weight: 500; cursor: pointer; transition: all .2s; font-family: var(--font-body);
+        }
+        .scene-tab.active {
+            background: var(--accent-glow); border-color: var(--border-accent); color: var(--accent);
+        }
+        .scene-tab:hover:not(.active) { border-color: rgba(255,255,255,.12); color: var(--text); }
+
+        .video-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem;
+        }
+        .video-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+        .video-cell {
+            position: relative; border-radius: var(--radius-sm); overflow: hidden;
+            border: 1px solid var(--border); background: var(--bg-card);
+            transition: border-color .3s;
+        }
+        .video-cell.ours { border-color: var(--border-accent); }
+        .video-cell video { width: 100%; display: block; aspect-ratio: 16/9; object-fit: cover; }
+        .video-cell .method-label {
+            position: absolute; top: .4rem; left: .4rem;
+            padding: .2rem .5rem; border-radius: 4px;
+            font-size: .65rem; font-weight: 600; letter-spacing: .03em;
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        }
+        .video-cell .method-label { background: rgba(0,0,0,.6); color: var(--text); }
+        .video-cell.ours .method-label { background: rgba(232,168,56,.85); color: #000; }
+        .video-cell .duration-badge {
+            position: absolute; bottom: .4rem; right: .4rem;
+            padding: .15rem .4rem; border-radius: 3px;
+            background: rgba(0,0,0,.7); color: var(--text-muted);
+            font-size: .6rem; font-family: var(--font-mono);
+        }
+
+        .traj-input {
+            border-radius: var(--radius-sm); overflow: hidden;
+            border: 1px solid var(--border); background: var(--bg-card);
+            margin-bottom: .75rem;
+        }
+        .traj-input img { width: 100%; display: block; }
+        .traj-input .input-label {
+            padding: .5rem .75rem; font-size: .72rem; color: var(--text-dim);
+            border-top: 1px solid var(--border); text-align: center;
+            font-weight: 500; letter-spacing: .03em;
+        }
+
+        /* === Demo Showcase === */
+        .demo-row {
+            display: grid; grid-template-columns: auto 1fr; gap: 1.25rem;
+            align-items: start; margin-bottom: 2rem;
+        }
+        .demo-input {
+            width: 200px; border-radius: var(--radius-sm); overflow: hidden;
+            border: 1px solid var(--border); background: var(--bg-card);
+        }
+        .demo-input img { width: 100%; display: block; }
+        .demo-input .label {
+            padding: .4rem .6rem; font-size: .7rem; color: var(--accent);
+            border-top: 1px solid var(--border); text-align: center;
+            font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+        }
+
+        /* === Tables === */
+        .table-wrap {
+            overflow-x: auto; border-radius: var(--radius);
+            border: 1px solid var(--border); background: var(--bg-card);
+        }
+        .table-title { padding: 1.2rem 1.5rem .3rem; font-weight: 600; font-size: .92rem; color: var(--text); }
+        .table-note { padding: .1rem 1.5rem .75rem; font-size: .72rem; color: var(--text-muted); }
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        thead th {
+            background: rgba(255,255,255,.02); padding: .7rem .8rem;
+            text-align: left; font-weight: 600; color: var(--text-dim);
+            font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+            border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        thead th.group-header {
+            text-align: center; border-bottom: 1px solid var(--border-accent);
+            color: var(--accent); font-size: .68rem; letter-spacing: .08em;
+        }
+        tbody td { padding: .6rem .8rem; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,.015); }
+        tbody tr.ours { background: var(--accent-glow); }
+        tbody tr.ours td { font-weight: 600; }
+        td.best { color: var(--accent); font-weight: 700; }
+        td.second { color: var(--accent2); text-decoration: underline; text-underline-offset: 3px; }
+        .tables-stack { display: flex; flex-direction: column; gap: 2rem; }
+
+        /* === Citation === */
+        .citation-block {
+            position: relative; background: var(--bg-card);
+            border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem 2rem;
+        }
+        .citation-block pre {
+            font-family: var(--font-mono); font-size: .78rem; line-height: 1.7;
+            color: var(--text-dim); overflow-x: auto; white-space: pre;
+        }
+        .copy-btn {
+            position: absolute; top: 1rem; right: 1rem;
+            background: rgba(255,255,255,.04); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); color: var(--text-dim);
+            padding: .35rem .7rem; font-size: .74rem; cursor: pointer; transition: all .2s;
+            font-family: var(--font-body);
+        }
+        .copy-btn:hover { background: var(--accent-glow); border-color: var(--border-accent); color: var(--accent); }
+
+        /* === Capability Table (Comparison) === */
+        .cap-table { margin-top: 1.5rem; }
+        .cap-table td.check { color: var(--accent2); font-weight: 700; }
+        .cap-table td.cross { color: var(--text-muted); }
+
+        /* === Sync Controls === */
+        .sync-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: .5rem 1rem; background: var(--bg-elevated); border-radius: var(--radius-sm);
+            margin-bottom: 1rem; border: 1px solid var(--border);
+        }
+        .sync-bar .sync-label { font-size: .72rem; color: var(--text-dim); font-weight: 500; }
+        .sync-bar .sync-progress {
+            flex: 1; margin: 0 1rem; height: 3px; background: rgba(255,255,255,.06);
+            border-radius: 2px; overflow: hidden;
+        }
+        .sync-bar .sync-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .1s linear; }
+        .sync-bar .sync-time { font-size: .7rem; color: var(--text-muted); font-family: var(--font-mono); }
+
+        /* === Footer === */
+        footer {
+            text-align: center; padding: 3rem 2rem; color: var(--text-muted);
+            font-size: .8rem; border-top: 1px solid var(--border);
+        }
+        footer a { color: var(--text-dim); }
+
+        /* === Responsive === */
+        @media (max-width: 900px) {
+            .video-grid { grid-template-columns: repeat(2, 1fr); }
+            .video-grid.cols-5 { grid-template-columns: repeat(2, 1fr); }
+            .method-timeline { grid-template-columns: 1fr; }
+            .demo-row { grid-template-columns: 1fr; }
+            .demo-input { width: 100%; }
+        }
+        @media (max-width: 600px) {
+            .hero { padding-top: 7rem; }
+            section { padding: 3rem 0; }
+            .container { padding: 0 1.2rem; }
+            .video-grid { grid-template-columns: 1fr 1fr; }
+            nav .nav-links { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="geo-bg"></div>
+
+<nav>
+    <div class="nav-inner">
+        <a href="#" class="nav-title">World<span>Craft</span></a>
+        <div class="nav-links">
+            <a href="#abstract">Abstract</a>
+            <a href="#method">Method</a>
+            <a href="#comparison">Comparisons</a>
+            <a href="#results">Results</a>
+            <a href="#citation">Citation</a>
+        </div>
+    </div>
+</nav>
+
+<!-- ==================== HERO ==================== -->
+<section class="hero">
+    <div class="container">
+        <div class="reveal">
+            <div class="hero-tag">NeurIPS 2026</div>
+        </div>
+        <h1 class="reveal reveal-d1">WorldCraft: From Camera Navigation to <em>Object Manipulation</em> in Interactive Video World Models</h1>
+        <p class="subtitle reveal reveal-d2">A trajectory-centric framework that equips interactive video world models with object-level actions, enabling users to manipulate individual objects along sketched paths while simultaneously navigating the camera.</p>
+
+        <div class="authors-wrap reveal reveal-d2">
+            <div class="authors-list">
+                <span class="author"><a href="#">Bohai Gu</a><sup>1,2</sup></span>
+                <span class="author"><a href="#">Taiyi Wu</a><sup>2</sup></span>
+                <span class="author"><a href="#">Yueyang Yuan</a><sup>3</sup></span>
+                <span class="author"><a href="#">Jian Liu</a><sup>1</sup></span>
+                <span class="author"><a href="#">Xiaocheng Lu</a><sup>1</sup></span>
+                <span class="author"><a href="#">Dazhao Du</a><sup>1</sup></span>
+                <span class="author"><a href="#">Jie Zhang</a><sup>1</sup></span>
+                <span class="author"><a href="#">Jinxiang Lai</a><sup>1</sup></span>
+                <span class="author"><a href="#">Shuai Yang</a><sup>4</sup></span>
+                <span class="author"><a href="#">Xiaotong Zhao</a><sup>2</sup></span>
+                <span class="author"><a href="#">Alan Zhao</a><sup>2</sup></span>
+                <span class="author"><a href="#">Song Guo</a><sup>1&dagger;</sup></span>
+            </div>
+            <div class="affiliations">
+                <span><sup>1</sup>HKUST</span>
+                <span><sup>2</sup>Tencent Video</span>
+                <span><sup>3</sup>Wuhan University</span>
+                <span><sup>4</sup>Peking University</span>
+            </div>
+            <p style="margin-top:.4rem;font-size:.72rem;color:var(--text-muted);">&dagger; Corresponding author</p>
+        </div>
+
+        <div class="link-row reveal reveal-d3">
+            <a href="#" class="link-btn"><i class="fas fa-file-pdf"></i> Paper</a>
+            <a href="#" class="link-btn"><i class="fab fa-github"></i> Code</a>
+            <a href="#" class="link-btn"><i class="ai ai-arxiv"></i> arXiv</a>
+            <a href="#" class="link-btn"><i class="fas fa-video"></i> Video</a>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== ABSTRACT ==================== -->
+<section id="abstract">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Abstract</h2><div class="bar"></div></div>
+        <p class="abstract-text reveal">Recent video-based world models have made pixel-space environments interactive at the camera level: users can navigate viewpoints while the model generates coherent visual continuations. Yet their action spaces remain incomplete&mdash;users can move the camera, but cannot act on individual objects. We present <em>WorldCraft</em>, a framework that expands interactive video world models from camera navigation to object-level trajectory actions. Given a user click and a sketched path, WorldCraft generates future frames in which the selected object follows the prescribed trajectory while the camera continues to navigate the scene. WorldCraft achieves this through a trajectory-centric control pipeline: <em>Normalized World Trajectory</em> (NWT) lifts the user-drawn path into a camera-invariant world coordinate system; <em>Spatial-Pathway LoRA</em> (SP-LoRA) injects this signal through the model's spatial-control pathway while preserving the pretrained camera controller; and <em>Trajectory-Anchored State Persistence</em> (TASP) uses the world trajectory as a persistent state anchor across autoregressive chunks, maintaining object state even when the camera looks away.</p>
+    </div>
+</section>
+
+<!-- ==================== METHOD ==================== -->
+<section id="method">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Method</h2><div class="bar"></div></div>
+
+        <div class="method-timeline reveal">
+            <div class="method-card">
+                <span class="card-num">01</span>
+                <div class="abbr">NWT</div>
+                <h3>Normalized World Trajectory</h3>
+                <p>Lifts user-drawn 2D paths into a camera-invariant world-space coordinate system and dynamically re-projects them under the current camera pose, decoupling object motion from ego-motion.</p>
+            </div>
+            <div class="method-card">
+                <span class="card-num">02</span>
+                <div class="abbr">SP-LoRA</div>
+                <h3>Spatial-Pathway LoRA</h3>
+                <p>Adapts only the spatial-control pathway (ProPE + action encoder) with lightweight LoRA, adding object manipulation without overwriting the pretrained camera controller.</p>
+            </div>
+            <div class="method-card">
+                <span class="card-num">03</span>
+                <div class="abbr">TASP</div>
+                <h3>Trajectory-Anchored State Persistence</h3>
+                <p>Uses the world-space trajectory as a persistent spatial state signal and refreshes stale memories, so moved objects reappear at correct positions when the camera returns.</p>
+            </div>
+        </div>
+
+        <!-- Capability comparison table -->
+        <div class="table-wrap reveal cap-table" style="margin-bottom:2rem">
+            <div class="table-title">Capability Comparison</div>
+            <div class="table-note">WorldCraft uniquely supports composable camera-object control with autoregressive long-video generation.</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Camera</th>
+                        <th>Object Traj.</th>
+                        <th>Composable</th>
+                        <th>Off-Cam State</th>
+                        <th>Autoregressive</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>DragAnything</td><td class="cross">&times;</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td></tr>
+                    <tr><td>Wan-Move</td><td class="cross">&times;</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td></tr>
+                    <tr><td>GameCraft</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&check;</td></tr>
+                    <tr><td>Genie 3</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&check;</td></tr>
+                    <tr><td>WorldPlay</td><td class="check">&check;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="cross">&times;</td><td class="check">&check;</td></tr>
+                    <tr class="ours"><td><strong>WorldCraft (Ours)</strong></td><td class="check">&check;</td><td class="check">&check;</td><td class="check">&check;</td><td class="check">&check;</td><td class="check">&check;</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== TRAJECTORY COMPARISON ==================== -->
+<section id="comparison">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Trajectory Control Comparison</h2><div class="bar"></div></div>
+
+        <p class="reveal" style="font-size:.88rem;color:var(--text-dim);margin-bottom:1.5rem;">
+            Side-by-side comparison on static-camera trajectory control. All methods receive the same first frame and trajectory condition. WorldCraft achieves precise object-level control while maintaining temporal consistency.
+        </p>
+
+        <!-- Scene Tabs -->
+        <div class="scene-tabs reveal" id="fig1Tabs">
+            <button class="scene-tab active" data-scene="a">Scene A &mdash; Game (character)</button>
+            <button class="scene-tab" data-scene="b">Scene B &mdash; Real (dog)</button>
+            <button class="scene-tab" data-scene="c">Scene C &mdash; Real (person)</button>
+        </div>
+
+        <!-- Trajectory Input -->
+        <div class="reveal" id="fig1TrajWrap">
+            <div class="traj-input">
+                <img id="fig1TrajImg" src="assets/images/traj_scene_a.png" alt="Trajectory input">
+                <div class="input-label">Input: First frame + user-drawn trajectory</div>
+            </div>
+        </div>
+
+        <!-- Sync Bar -->
+        <div class="sync-bar reveal" id="fig1Sync">
+            <span class="sync-label">Synced playback</span>
+            <div class="sync-progress"><div class="sync-fill" id="fig1SyncFill"></div></div>
+            <span class="sync-time" id="fig1SyncTime">0.0s / 2.5s</span>
+        </div>
+
+        <!-- Video Comparison Grid -->
+        <div class="video-grid reveal" id="fig1Grid">
+            <div class="video-cell ours">
+                <span class="method-label">WorldCraft (Ours)</span>
+                <video muted playsinline><source src="assets/fig1/ours/scene_a.mp4" type="video/mp4"></video>
+                <span class="duration-badge">61f / 2.5s</span>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">WorldPlay</span>
+                <video muted playsinline><source src="assets/fig1/worldplay/scene_a.mp4" type="video/mp4"></video>
+                <span class="duration-badge">61f / 2.5s</span>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">DragAnything</span>
+                <video muted playsinline><source src="assets/fig1/draganything/scene_a.mp4" type="video/mp4"></video>
+                <span class="duration-badge">14f / 0.6s</span>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">Wan-Move</span>
+                <video muted playsinline><source src="assets/fig1/wan_move/scene_a.mp4" type="video/mp4"></video>
+                <span class="duration-badge">81f / 3.8s</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== OFF-CAMERA COMPARISON ==================== -->
+<section id="offcamera">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Long-Horizon &amp; Off-Camera</h2><div class="bar"></div></div>
+
+        <p class="reveal" style="font-size:.88rem;color:var(--text-dim);margin-bottom:1.5rem;">
+            The goose moves right while the camera pans left and then returns. WorldCraft maintains scene consistency and, via TASP, recovers the object at its correct off-camera-updated position. Baselines either lose scene coherence or cannot track object state.
+        </p>
+
+        <!-- Trajectory Input -->
+        <div class="reveal">
+            <div class="traj-input">
+                <img src="assets/images/traj_ooc.png" alt="Off-camera trajectory">
+                <div class="input-label">Input: First frame + object trajectory + camera pan (left then return)</div>
+            </div>
+        </div>
+
+        <!-- Sync Bar -->
+        <div class="sync-bar reveal" id="fig2Sync">
+            <span class="sync-label">Synced playback</span>
+            <div class="sync-progress"><div class="sync-fill" id="fig2SyncFill"></div></div>
+            <span class="sync-time" id="fig2SyncTime">0.0s / 2.5s</span>
+        </div>
+
+        <!-- Video Grid (5 methods) -->
+        <div class="video-grid cols-5 reveal" id="fig2Grid">
+            <div class="video-cell ours">
+                <span class="method-label">WorldCraft (Ours)</span>
+                <video muted playsinline><source src="assets/fig2/ours/ooc.mp4" type="video/mp4"></video>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">WorldPlay</span>
+                <video muted playsinline><source src="assets/fig2/worldplay/ooc.mp4" type="video/mp4"></video>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">MatrixGame 2.0</span>
+                <video muted playsinline><source src="assets/fig2/matrixgame2/ooc.mp4" type="video/mp4"></video>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">GameCraft</span>
+                <video muted playsinline><source src="assets/fig2/gamecraft/ooc.mp4" type="video/mp4"></video>
+            </div>
+            <div class="video-cell">
+                <span class="method-label">Yume</span>
+                <video muted playsinline><source src="assets/fig2/yume/ooc.mp4" type="video/mp4"></video>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== EXTENDED CAPABILITIES ==================== -->
+<section id="demos">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Extended Capabilities</h2><div class="bar"></div></div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;" class="reveal">
+            <div class="fig-wrap" style="padding:0; overflow:hidden;">
+                <video autoplay loop muted playsinline style="width:100%;display:block;border-radius:0"><source src="assets/demos/part.mp4" type="video/mp4"></video>
+                <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
+                    <strong style="color:var(--accent);">Part-level control</strong><br>
+                    The shield follows the trajectory while the body stays still.
+                </div>
+            </div>
+            <div class="fig-wrap" style="padding:0; overflow:hidden;">
+                <video autoplay loop muted playsinline style="width:100%;display:block;border-radius:0"><source src="assets/demos/multi.mp4" type="video/mp4"></video>
+                <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
+                    <strong style="color:var(--accent2);">Multi-object control</strong><br>
+                    Three objects steered simultaneously along independent paths.
+                </div>
+            </div>
+            <div class="fig-wrap" style="padding:0; overflow:hidden;">
+                <video autoplay loop muted playsinline preload="auto" style="width:100%;display:block;border-radius:0"><source src="assets/demos/long.mp4" type="video/mp4"></video>
+                <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
+                    <strong style="color:var(--accent3);">253-frame rollout</strong><br>
+                    ~10.5s autoregressive generation with composable control.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== RESULTS ==================== -->
+<section id="results">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Quantitative Results</h2><div class="bar"></div></div>
+        <div class="tables-stack">
+
+            <!-- Table 1: Trajectory Control -->
+            <div class="table-wrap reveal">
+                <div class="table-title">Table 1. Trajectory control under static camera (61 frames, 50 clips)</div>
+                <div class="table-note">All methods share the same first frame and trajectory condition. Best in bold.</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Method</th>
+                            <th colspan="4" class="group-header">Visual Quality</th>
+                            <th colspan="3" class="group-header">VBench++</th>
+                            <th rowspan="2">TE&darr;</th>
+                        </tr>
+                        <tr>
+                            <th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th><th>DINO&uarr;</th>
+                            <th>SubjC&uarr;</th><th>BgC&uarr;</th><th>Temp&uarr;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>DragAnything</td><td>15.97</td><td>0.600</td><td>0.468</td><td>0.777</td><td>0.896</td><td>0.913</td><td>0.938</td><td>39.86</td></tr>
+                        <tr><td>Wan-Move</td><td>16.42</td><td>0.592</td><td>0.375</td><td>0.782</td><td>0.927</td><td>0.943</td><td>0.985</td><td>44.08</td></tr>
+                        <tr class="ours"><td><strong>WorldCraft (Ours)</strong></td><td class="best">17.23</td><td class="best">0.616</td><td class="best">0.363</td><td class="best">0.807</td><td class="best">0.942</td><td class="best">0.945</td><td class="best">0.989</td><td class="best">38.90</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table 2: Camera Fidelity -->
+            <div class="table-wrap reveal">
+                <div class="table-title">Table 2. Camera fidelity on camera-only input</div>
+                <div class="table-note">WorldCraft preserves camera accuracy at 61 frames and outperforms all methods at 253-frame extended horizon.</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Method</th>
+                            <th colspan="6" class="group-header">Short-term (61 frames)</th>
+                            <th colspan="3" class="group-header">Long-term (253 frames)</th>
+                        </tr>
+                        <tr>
+                            <th>RPE<sub>rot</sub>&darr;</th><th>RPE<sub>trans</sub>&darr;</th><th>RPE<sub>cam</sub>&darr;</th>
+                            <th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th>
+                            <th>RPE<sub>rot</sub>&darr;</th><th>RPE<sub>trans</sub>&darr;</th><th>RPE<sub>cam</sub>&darr;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Yume</td><td>0.261</td><td>0.0143</td><td>0.0169</td><td>12.39</td><td>0.2931</td><td>0.5718</td><td>0.374</td><td>0.0247</td><td>0.0285</td></tr>
+                        <tr><td>Matrix-Game 2.0</td><td>0.342</td><td>0.0137</td><td>0.0196</td><td>12.96</td><td>0.3235</td><td>0.5326</td><td>0.162</td><td>0.0243</td><td>0.0261</td></tr>
+                        <tr><td>GameCraft</td><td>0.252</td><td class="second">0.0130</td><td class="second">0.0157</td><td>12.42</td><td>0.2861</td><td>0.5529</td><td>0.198</td><td>0.0243</td><td>0.0265</td></tr>
+                        <tr><td>WorldPlay (base)</td><td class="second">0.120</td><td>0.0155</td><td>0.0165</td><td>13.77</td><td>0.3434</td><td>0.4700</td><td>0.130</td><td>0.0262</td><td>0.0276</td></tr>
+                        <tr class="ours"><td><strong>WorldCraft (Ours)</strong></td><td>0.131</td><td>0.0161</td><td>0.0170</td><td class="best">13.95</td><td class="best">0.3474</td><td class="best">0.4621</td><td class="best">0.123</td><td class="best">0.0225</td><td class="best">0.0233</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table 3: Ablation -->
+            <div class="table-wrap reveal">
+                <div class="table-title">Table 3. Ablation: NWT representation & adaptation strategy</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Configuration</th><th>#Params</th><th>TE&darr;</th><th>RPE<sub>rot</sub>&darr;</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="4" style="font-size:.7rem;color:var(--text-muted);font-style:italic;padding:.4rem .8rem">(a) NWT Representation</td></tr>
+                        <tr><td>Pixel space (raw user traj.)</td><td>&mdash;</td><td>35.82 / 40.69 / 45.28</td><td>&mdash;</td></tr>
+                        <tr><td>World space + single-shot depth</td><td>&mdash;</td><td>33.82 / 37.69 / 41.28</td><td>&mdash;</td></tr>
+                        <tr class="ours"><td><strong>World space + iterative depth</strong></td><td>&mdash;</td><td class="best">30.82 / 32.10 / 34.65</td><td>&mdash;</td></tr>
+                        <tr><td colspan="4" style="font-size:.7rem;color:var(--text-muted);font-style:italic;padding:.4rem .8rem">(b) Layer Selection (Static-BI &rarr; Dynamic-AR)</td></tr>
+                        <tr class="ours"><td><strong>Spatial-pathway LoRA (ProPE + action)</strong></td><td>~50M</td><td class="best">38.90</td><td class="best">0.131</td></tr>
+                        <tr><td>Spatial pathway + V + MLP (blocks 28-42)</td><td>~120M</td><td>46.60</td><td>0.136</td></tr>
+                        <tr><td>Q/K/V + MLP (conventional LoRA)</td><td>~200M</td><td>49.43</td><td>0.139</td></tr>
+                        <tr><td>Full fine-tune</td><td>8B</td><td class="second">37.20</td><td>0.237</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==================== CITATION ==================== -->
+<section id="citation">
+    <div class="container">
+        <div class="sec-head reveal"><div class="bar"></div><h2>Citation</h2><div class="bar"></div></div>
+        <div class="citation-block reveal">
+            <button class="copy-btn" onclick="copyBib()"><i class="fas fa-copy"></i> Copy</button>
+            <pre id="bibtex">@inproceedings{gu2026worldcraft,
+    title={WorldCraft: From Camera Navigation to Object Manipulation
+           in Interactive Video World Models},
+    author={Gu, Bohai and others},
+    booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+    year={2026}
+}</pre>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p>&copy; 2026 WorldCraft &nbsp;|&nbsp; Template inspired by <a href="https://github.com/Place-it-R1" target="_blank">Place-it-R1</a></p>
+</footer>
+
+<script>
+/* === Reveal on scroll === */
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: .06, rootMargin: '0px 0px -30px 0px' });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/* === Nav hide on scroll === */
+let lastScroll = 0;
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => {
+    const cur = window.scrollY;
+    nav.style.transform = cur > lastScroll && cur > 80 ? 'translateY(-100%)' : 'translateY(0)';
+    lastScroll = cur;
+}, { passive: true });
+
+/* === Copy citation === */
+function copyBib() {
+    navigator.clipboard.writeText(document.getElementById('bibtex').textContent).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000);
+    });
+}
+
+/* === Scene Tab Switching (Fig 1) === */
+const fig1Scenes = {
+    a: { traj: 'assets/images/traj_scene_a.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
+    b: { traj: 'assets/images/traj_scene_b.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
+    c: { traj: 'assets/images/traj_scene_c.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } }
+};
+const methods = ['ours', 'worldplay', 'draganything', 'wan_move'];
+const methodLabels = ['WorldCraft (Ours)', 'WorldPlay', 'DragAnything', 'Wan-Move'];
+const durationLabels = { ours: '61f / 2.5s', worldplay: '61f / 2.5s', draganything: '14f / 0.6s', wan_move: '81f / 3.8s' };
+const durationLabelsA = { ours: '61f / 2.5s', worldplay: '61f / 2.5s', draganything: '14f / 0.6s', wan_move: '81f / 3.8s' };
+
+let currentScene = 'a';
+
+document.querySelectorAll('#fig1Tabs .scene-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('#fig1Tabs .scene-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentScene = tab.dataset.scene;
+        loadScene(currentScene);
+    });
+});
+
+function loadScene(scene) {
+    document.getElementById('fig1TrajImg').src = fig1Scenes[scene].traj;
+    const grid = document.getElementById('fig1Grid');
+    const labels = scene === 'a' ? durationLabelsA : durationLabels;
+    grid.innerHTML = '';
+    methods.forEach((m, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'video-cell' + (m === 'ours' ? ' ours' : '');
+        cell.innerHTML = `
+            <span class="method-label">${methodLabels[i]}</span>
+            <video muted playsinline><source src="assets/fig1/${m}/scene_${scene}.mp4" type="video/mp4"></video>
+            <span class="duration-badge">${labels[m]}</span>
+        `;
+        grid.appendChild(cell);
+    });
+    initSyncGroup('fig1');
+}
+
+/* === Synchronized Playback System === */
+const CYCLE_DURATION = 2.5; // seconds - target sync cycle
+
+function initSyncGroup(groupId) {
+    const container = document.getElementById(groupId + 'Grid');
+    const videos = container.querySelectorAll('video');
+    const fillEl = document.getElementById(groupId + 'SyncFill');
+    const timeEl = document.getElementById(groupId + 'SyncTime');
+
+    // Get per-scene rates
+    const sceneRates = fig1Scenes[currentScene] ? fig1Scenes[currentScene].rates : null;
+
+    // Remove loop, set playback rates, start from 0
+    videos.forEach((v, i) => {
+        v.removeAttribute('loop');
+        const method = groupId === 'fig1' ? methods[i] : null;
+        if (method && sceneRates && sceneRates[method]) {
+            v.playbackRate = sceneRates[method];
+        } else {
+            v.playbackRate = 1.0;
+        }
+        v.currentTime = 0;
+        v.play().catch(() => {});
+    });
+
+    // Clear old timers
+    if (window['syncUI_' + groupId]) clearInterval(window['syncUI_' + groupId]);
+    if (window['syncRestart_' + groupId]) clearInterval(window['syncRestart_' + groupId]);
+
+    let cycleStart = performance.now();
+
+    // UI progress bar update
+    window['syncUI_' + groupId] = setInterval(() => {
+        const elapsed = Math.min((performance.now() - cycleStart) / 1000, CYCLE_DURATION);
+        const pct = (elapsed / CYCLE_DURATION) * 100;
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (timeEl) timeEl.textContent = elapsed.toFixed(1) + 's / ' + CYCLE_DURATION.toFixed(1) + 's';
+    }, 33);
+
+    // Restart all videos every cycle
+    window['syncRestart_' + groupId] = setInterval(() => {
+        cycleStart = performance.now();
+        videos.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
+    }, CYCLE_DURATION * 1000);
+}
+
+// Auto-start videos when they scroll into view
+const videoObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        const videos = e.target.querySelectorAll('video');
+        if (e.isIntersecting) {
+            videos.forEach(v => v.play().catch(() => {}));
+        } else {
+            videos.forEach(v => v.pause());
+        }
+    });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.video-grid').forEach(grid => videoObserver.observe(grid));
+
+// Init Fig 2 sync (all same duration ~2.5s, simple restart loop)
+function initFig2() {
+    const container = document.getElementById('fig2Grid');
+    const videos = container.querySelectorAll('video');
+    const fillEl = document.getElementById('fig2SyncFill');
+    const timeEl = document.getElementById('fig2SyncTime');
+
+    videos.forEach(v => {
+        v.removeAttribute('loop');
+        v.playbackRate = 1.0;
+        v.currentTime = 0;
+        v.play().catch(() => {});
+    });
+
+    let cycleStart = performance.now();
+    setInterval(() => {
+        const elapsed = Math.min((performance.now() - cycleStart) / 1000, CYCLE_DURATION);
+        const pct = (elapsed / CYCLE_DURATION) * 100;
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (timeEl) timeEl.textContent = elapsed.toFixed(1) + 's / ' + CYCLE_DURATION.toFixed(1) + 's';
+    }, 33);
+
+    setInterval(() => {
+        cycleStart = performance.now();
+        videos.forEach(v => { v.currentTime = 0; v.play().catch(() => {}); });
+    }, CYCLE_DURATION * 1000);
+}
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', () => {
+    loadScene('a');
+    setTimeout(initFig2, 500);
+});
+
+// Click to replay any video
+document.addEventListener('click', e => {
+    const cell = e.target.closest('.video-cell');
+    if (cell) {
+        const v = cell.querySelector('video');
+        if (v) { v.currentTime = 0; v.play().catch(() => {}); }
+    }
+});
+</script>
+</body>
+</html>
