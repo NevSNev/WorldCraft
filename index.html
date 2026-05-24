@@ -388,7 +388,7 @@
 <section class="hero">
     <div class="container">
         <div class="reveal">
-            <div class="hero-tag">NeurIPS 2026</div>
+            <div class="hero-tag">NeurIPS 2026 Under Review</div>
         </div>
         <h1 class="reveal reveal-d1">WorldCraft: From Camera Navigation to <em>Object Manipulation</em> in Interactive Video World Models</h1>
         <p class="subtitle reveal reveal-d2">A trajectory-centric framework that equips interactive video world models with object-level actions, enabling users to manipulate individual objects along sketched paths while simultaneously navigating the camera.</p>
@@ -458,6 +458,15 @@
                 <h3>Trajectory-Anchored State Persistence</h3>
                 <p>Uses the world-space trajectory as a persistent spatial state signal and refreshes stale memories, so moved objects reappear at correct positions when the camera returns.</p>
             </div>
+        </div>
+
+        <!-- Capability comparison table -->
+        <div class="table-wrap reveal cap-table" style="margin-bottom:2rem">
+
+        <!-- Pipeline Figure -->
+        <div class="fig-wrap white-bg reveal" style="margin-bottom:2.5rem;">
+            <img src="assets/images/pipeline.png" alt="WorldCraft Pipeline">
+            <div class="fig-caption"><strong>Figure 1. WorldCraft overview.</strong> (Top-left) WorldCraft lifts a user-specified 2D trajectory into a camera-decoupled normalized world space and re-projects it into per-frame trajectory conditions under the given camera actions. (Top-right) The trajectory and camera controls are injected through a lightweight pathway-selective LoRA on the spatial-control pathway, while the backbone attention and MLP layers remain frozen. (Bottom) During autoregressive generation, WorldCraft updates the anchor frame and memory bank across chunks, and refreshes outdated memories to support long-horizon out-of-camera object reasoning.</div>
         </div>
 
         <!-- Capability comparison table -->
