@@ -253,6 +253,7 @@
         }
 
         .traj-input {
+            position: relative;
             border-radius: var(--radius-sm); overflow: hidden;
             border: 1px solid var(--border); background: var(--bg-card);
             margin-bottom: .75rem;
@@ -262,6 +263,44 @@
             padding: .5rem .75rem; font-size: .72rem; color: var(--text-dim);
             border-top: 1px solid var(--border); text-align: center;
             font-weight: 500; letter-spacing: .03em;
+        }
+
+        /* === Camera Motion Overlay === */
+        .cam-overlay {
+            position: absolute;
+            top: 12px; right: 12px;
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .35rem .7rem;
+            background: rgba(10,11,13,.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(232,168,56,.4);
+            border-radius: 100px;
+            color: var(--text);
+            font-size: .72rem; font-weight: 600;
+            letter-spacing: .04em;
+            z-index: 5;
+            box-shadow: 0 4px 12px rgba(0,0,0,.3);
+        }
+        .cam-overlay .cam-icon { color: var(--accent); font-size: .8rem; }
+        .cam-overlay .cam-arrow {
+            display: inline-block;
+            color: var(--accent);
+            font-size: .85rem;
+            font-weight: 700;
+        }
+        .cam-overlay.compact {
+            top: 8px; right: 8px;
+            padding: .25rem .55rem;
+            font-size: .62rem;
+            gap: .3rem;
+        }
+        @keyframes cam-pulse {
+            0%, 100% { transform: translateX(0); opacity: 1; }
+            50% { transform: translateX(2px); opacity: .7; }
+        }
+        .cam-overlay .cam-arrow {
+            animation: cam-pulse 1.6s ease-in-out infinite;
         }
 
         /* === Demo Showcase === */
@@ -517,6 +556,11 @@
         <div class="reveal" id="fig1TrajWrap">
             <div class="traj-input">
                 <img id="fig1TrajImg" src="assets/images/traj_scene_a.png" alt="Trajectory input">
+                <div class="cam-overlay" id="fig1CamOverlay">
+                    <i class="fas fa-video cam-icon"></i>
+                    <span>Camera:</span>
+                    <span id="fig1CamMotion">Forward <span class="cam-arrow">↑</span></span>
+                </div>
                 <div class="input-label">Input: First frame + user-drawn trajectory</div>
             </div>
         </div>
@@ -567,6 +611,11 @@
         <div class="reveal">
             <div class="traj-input">
                 <img src="assets/images/traj_ooc.png" alt="Off-camera trajectory">
+                <div class="cam-overlay">
+                    <i class="fas fa-video cam-icon"></i>
+                    <span>Camera:</span>
+                    <span>Pan <span class="cam-arrow">←</span> then <span class="cam-arrow">→</span></span>
+                </div>
                 <div class="input-label">Input: First frame + object trajectory + camera pan (left then return)</div>
             </div>
         </div>
@@ -611,7 +660,13 @@
 
         <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;" class="reveal">
             <div class="fig-wrap" style="padding:0; overflow:hidden;">
-                <img src="assets/images/demo_part.png" alt="Part trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                <div style="position:relative;">
+                    <img src="assets/images/demo_part.png" alt="Part trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                    <div class="cam-overlay compact">
+                        <i class="fas fa-video cam-icon"></i>
+                        <span>Static</span>
+                    </div>
+                </div>
                 <video autoplay loop muted playsinline style="width:100%;display:block;border-radius:0"><source src="assets/demos/part.mp4" type="video/mp4"></video>
                 <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
                     <strong style="color:var(--accent);">Part-level control</strong><br>
@@ -619,7 +674,13 @@
                 </div>
             </div>
             <div class="fig-wrap" style="padding:0; overflow:hidden;">
-                <img src="assets/images/demo_multi.png" alt="Multi trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                <div style="position:relative;">
+                    <img src="assets/images/demo_multi.png" alt="Multi trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                    <div class="cam-overlay compact">
+                        <i class="fas fa-video cam-icon"></i>
+                        <span>Forward <span class="cam-arrow">↑</span></span>
+                    </div>
+                </div>
                 <video autoplay loop muted playsinline style="width:100%;display:block;border-radius:0"><source src="assets/demos/multi.mp4" type="video/mp4"></video>
                 <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
                     <strong style="color:var(--accent2);">Multi-object control</strong><br>
@@ -627,7 +688,13 @@
                 </div>
             </div>
             <div class="fig-wrap" style="padding:0; overflow:hidden;">
-                <img src="assets/images/demo_long.png" alt="Long trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                <div style="position:relative;">
+                    <img src="assets/images/demo_long.png" alt="Long trajectory" style="width:100%;display:block;border-radius:0;opacity:.85;">
+                    <div class="cam-overlay compact">
+                        <i class="fas fa-video cam-icon"></i>
+                        <span>Static <span class="cam-arrow">→</span> Forward <span class="cam-arrow">↑</span></span>
+                    </div>
+                </div>
                 <video autoplay loop muted playsinline preload="auto" style="width:100%;display:block;border-radius:0"><source src="assets/demos/long.mp4" type="video/mp4"></video>
                 <div class="fig-caption" style="padding:.8rem 1rem; border-top:1px solid var(--border);">
                     <strong style="color:var(--accent3);">253-frame rollout</strong><br>
@@ -774,10 +841,11 @@ function copyBib() {
 }
 
 /* === Scene Tab Switching (Fig 1) === */
+/* === Scene Tab Switching (Fig 1) === */
 const fig1Scenes = {
-    a: { traj: 'assets/images/traj_scene_a.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
-    b: { traj: 'assets/images/traj_scene_b.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
-    c: { traj: 'assets/images/traj_scene_c.png', rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } }
+    a: { traj: 'assets/images/traj_scene_a.png', cam: 'Forward <span class="cam-arrow">↑</span>',  rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
+    b: { traj: 'assets/images/traj_scene_b.png', cam: 'Right <span class="cam-arrow">→</span>',    rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } },
+    c: { traj: 'assets/images/traj_scene_c.png', cam: 'Static',                                     rates: { ours: 1.0, worldplay: 1.0, draganything: 1.0, wan_move: 3.8/2.5 } }
 };
 const methods = ['ours', 'worldplay', 'draganything', 'wan_move'];
 const methodLabels = ['WorldCraft (Ours)', 'WorldPlay', 'DragAnything', 'Wan-Move'];
@@ -797,6 +865,7 @@ document.querySelectorAll('#fig1Tabs .scene-tab').forEach(tab => {
 
 function loadScene(scene) {
     document.getElementById('fig1TrajImg').src = fig1Scenes[scene].traj;
+    document.getElementById('fig1CamMotion').innerHTML = fig1Scenes[scene].cam;
     const grid = document.getElementById('fig1Grid');
     const labels = scene === 'a' ? durationLabelsA : durationLabels;
     grid.innerHTML = '';
