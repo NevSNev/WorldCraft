@@ -152,6 +152,30 @@
         }
         .link-btn i, .link-btn .ai { font-size: .95rem; color: var(--accent); }
 
+        /* === Peer Review === */
+        .peer-review {
+            max-width: 760px; margin: 0 auto; text-align: left; scroll-margin-top: 80px;
+            background: var(--bg-card); border: 1px solid rgba(232,168,56,.18);
+            border-radius: 12px; font-size: .82rem;
+        }
+        .peer-review summary {
+            display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem;
+            padding: 1rem 1.25rem; cursor: pointer; list-style: none;
+        }
+        .peer-review summary::-webkit-details-marker { display: none; }
+        .peer-review summary::after { content: '+'; margin-left: auto; color: var(--accent); font-size: 1.15rem; }
+        .peer-review[open] summary::after { content: '\2212'; }
+        .peer-review summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 12px; }
+        .peer-review__label { color: var(--text); font-weight: 500; }
+        .peer-review__mean { color: var(--accent); font-family: var(--font-mono); font-size: .75rem; }
+        .peer-review__status { color: var(--text-dim); font-size: .75rem; }
+        .peer-review__body { padding: 1.15rem 1.25rem; border-top: 1px solid var(--border); }
+        .peer-review__caption { color: var(--text-dim); font-size: .72rem; margin-bottom: .7rem; }
+        .peer-review__scores { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; }
+        .peer-review__scores li { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 8px; background: var(--accent-glow); border: 1px solid var(--border-accent); color: var(--accent); font-family: var(--font-mono); font-size: 1rem; }
+        .peer-review__body p { margin-top: .85rem; color: var(--text-dim); font-size: .78rem; line-height: 1.75; }
+        .peer-review__body p:last-child { color: #92918c; font-size: .7rem; }
+
         /* === Authors === */
         .authors-wrap { text-align: center; }
         .authors-list {
@@ -459,6 +483,22 @@
             <a href="https://arxiv.org/abs/2605.25077" class="link-btn"><i class="ai ai-arxiv"></i> arXiv</a>
             <a href="#" class="link-btn"><i class="fas fa-video"></i> Video</a>
         </div>
+
+        <details class="peer-review" id="peer-review">
+            <summary>
+                <span class="peer-review__label">NeurIPS 2026 &middot; Review history</span>
+                <span class="peer-review__mean">Mean score 4.0</span>
+                <span class="peer-review__status">Not accepted</span>
+            </summary>
+            <div class="peer-review__body">
+                <div class="peer-review__caption">Four reviewer scores</div>
+                <ol class="peer-review__scores" aria-label="Reviewer scores: 5, 4, 4, 3">
+                    <li>5</li><li>4</li><li>4</li><li>3</li>
+                </ol>
+                <p>WorldCraft received reviewer scores of 5, 4, 4, and 3 (mean: 4.0) at NeurIPS 2026. The submission was not accepted. The paper is available as an arXiv preprint.</p>
+                <p>Review scores reported by the authors.</p>
+            </div>
+        </details>
     </div>
 </section>
 
@@ -813,6 +853,15 @@
 </footer>
 
 <script>
+/* Open review history when arriving from the personal homepage. */
+function openLinkedReview() {
+    if (window.location.hash === '#peer-review') {
+        document.getElementById('peer-review').open = true;
+    }
+}
+openLinkedReview();
+window.addEventListener('hashchange', openLinkedReview);
+
 /* === Reveal on scroll === */
 const observer = new IntersectionObserver(entries => {
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
